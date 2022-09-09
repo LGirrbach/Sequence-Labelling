@@ -17,10 +17,7 @@ def _convert_idx(sources: List[List[str]], predictions: List[List[int]],
 
     for source, prediction in zip(sources, predictions):
         prediction = np.array(prediction).reshape((-1, tau)).tolist()
-        try:
-            assert len(prediction) == len(source)
-        except:
-            print(len(prediction), len(source))
+        assert len(prediction) == len(source)
 
         alignment = []
         decoded_prediction = []
@@ -38,13 +35,15 @@ def _convert_idx(sources: List[List[str]], predictions: List[List[int]],
 def argmax_decode(model: LSTMModel, logits: Tensor, lengths: Tensor, sources: List[List[str]],
                   target_vocabulary: SequenceLabellingVocabulary, tau: int) -> List[Prediction]:
     predictions = torch.argmax(logits, dim=-1).detach().cpu().tolist()
-    lengths = lengths.detach().cpu().tolist()
+    lengths = (tau * lengths).detach().cpu().tolist()
     predictions = [prediction[:length] for prediction, length in zip(predictions, lengths)]
+
     return _convert_idx(sources=sources, predictions=predictions, target_vocabulary=target_vocabulary, tau=tau)
 
 
 def viterbi_decode(model: LSTMModel, logits: Tensor, lengths: Tensor, sources: List[List[str]],
                    target_vocabulary: SequenceLabellingVocabulary, tau: int) -> List[Prediction]:
+    lengths = tau * lengths
     # Get relevant dimension info
     batch, timesteps, num_tags = logits.shape
 

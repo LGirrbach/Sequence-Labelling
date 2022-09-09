@@ -17,9 +17,9 @@ def _get_logits(model: LSTMModel, batch: Batch) -> Tensor:
 
 def cross_entropy_loss(model: LSTMModel, batch: Batch, reduction: str = "mean") -> ModelOutput:
     logits = _get_logits(model=model, batch=batch)
-    logits = torch.flatten(logits, end_dim=-2)
-    targets = torch.flatten(batch.targets).to(logits.device)
-    loss = cross_entropy(logits, targets, ignore_index=0, reduction=reduction)
+    flattened_logits = torch.flatten(logits, end_dim=-2)
+    flattened_targets = torch.flatten(batch.targets).to(logits.device)
+    loss = cross_entropy(flattened_logits, flattened_targets, ignore_index=0, reduction=reduction)
     return ModelOutput(loss=loss, logits=logits)
 
 

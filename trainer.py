@@ -174,10 +174,7 @@ def evaluate_on_development_data(model: TrainedModel, development_data: Sequence
 
     with torch.no_grad():
         for batch in development_dataloader:
-            batch_model_output = get_loss(
-                model=model.model.eval(), sources=batch.sources, targets=batch.targets,
-                source_lengths=batch.source_lengths, target_lengths=batch.target_lengths, reduction="none"
-            )
+            batch_model_output = get_loss(model=model.model.eval(), batch=batch, reduction="none")
             losses.extend(batch_model_output.loss.detach().cpu().flatten().tolist())
 
             batch_predictions = inference(

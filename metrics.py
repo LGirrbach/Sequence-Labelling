@@ -46,9 +46,10 @@ def get_metrics(predictions: List[List[str]], targets: List[List[str]],
 
     wer = 100 * (1 - num_correct_sequences / total_num_sequences)
     ter = 100 * (1 - num_correct_tokens / total_num_tokens)
+    loss = np.mean(losses) if losses is not None else None
 
     return Metrics(
-        loss=np.mean(losses) if losses is not None else np.nan,
+        loss=loss,
         wer=wer,
         ter=ter,
         edit_distance=np.mean(edit_distances),

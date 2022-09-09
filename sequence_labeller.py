@@ -48,13 +48,12 @@ class SequenceLabeller:
 
         predictions = []
         model = self.model.model.to(self.settings.device).eval()
-        tau = self.settings.tau
 
         for batch in tqdm(evaluation_dataloader, desc="Prediction Progress"):
             with torch.no_grad():
                 logits = model(batch.sources, batch.source_lengths)
                 batch_predictions = self.inference(
-                    model=model, logits=logits, lengths=tau * batch.source_lengths, tau=self.settings.tau,
+                    model=model, logits=logits, lengths=batch.source_lengths, tau=self.settings.tau,
                     sources=batch.raw_sources, target_vocabulary=self.model.target_vocabulary
                 )
                 predictions.extend(batch_predictions)
