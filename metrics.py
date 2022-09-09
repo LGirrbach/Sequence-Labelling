@@ -1,58 +1,56 @@
 import numpy as np
 import editdistance
 
-from constants import SequenceData
+from typing import List
+from typing import Optional
+from collections import namedtuple
+
+metric_names = ["loss", "wer", "ter", "edit_distance", "normalised_edit_distance"]
+Metrics = namedtuple(
+    "Metrics", field_names=metric_names
+)
 
 
-def sequence_accuracy(predictions: SequenceData, targets: SequenceData):
+def get_metrics(predictions: List[List[str]], targets: List[List[str]],
+                losses: Optional[List[float]] = None) -> Metrics:
     assert len(predictions) == len(targets)
-    num_correct, num_total = 0, len(targets)
+    assert len(predictions) > 0
 
-    for predicted_labels, true_labels in zip(predictions, targets):
-        if predicted_labels == true_labels:
-            num_correct += 1
+    num_correct_sequences = 0
+    total_num_sequences = 0
+    num_correct_tokens = 0
+    total_num_tokens = 0
 
-    return num_correct / num_total
+    edit_distances = []
+    normalised_edit_distances = []
 
+    for predicted_symbols, target_symbols in zip(predictions, targets):
+        total_num_sequences += 1
 
-def token_accuracy(predictions: SequenceData, targets: SequenceData) -> float:
-    assert len(targets) == len(predictions)
-    num_correct, total = 0, 0
-    for predicted_labels, true_labels in zip(predictions, targets):
-        if len(predicted_labels) != len(true_labels):
-            total += len(true_labels)
-            continue
+        # WER / Sequence Accuracy
+        if predicted_symbols == target_symbols:
+            num_correct_sequences += 1
 
-        for predicted_label, true_label in zip(predicted_labels, true_labels):
-            num_correct += (predicted_label == true_label)
-            total += 1
-    if total == 0:
-        return 0.0
-    return num_correct / total
+        # Token Accuracy
+        if len(predicted_symbols) != len(target_symbols):
+            num_correct_tokens = np.nan  # Can't calculate token accuracy for sequences with unequal number of symbols
 
+        for predicted_symbol, target_symbol in zip(predicted_symbols, target_symbols):
+            num_correct_tokens += (predicted_symbol == target_symbol)
+            total_num_tokens += 1
 
-def edit_distance(predictions: SequenceData, targets: SequenceData) -> float:
-    assert len(predictions) == len(targets)
-    distances = [
-        editdistance.distance(predicted_labels, true_labels) for predicted_labels, true_labels
-        in zip(predictions, targets)
-    ]
+        # (Normalised) Edit Distance
+        dist = editdistance.distance(predicted_symbols, target_symbols)
+        edit_distances.append(dist)
+        normalised_edit_distances.append(dist / len(target_symbols))
 
-    if len(distances) == 0:
-        return 0.0
+    wer = 100 * (1 - num_correct_sequences / total_num_sequences)
+    ter = 100 * (1 - num_correct_tokens / total_num_tokens)
 
-    return np.mean(distances).item()
-
-
-def normalised_edit_distance(predictions: SequenceData, targets: SequenceData) -> float:
-    assert len(predictions) == len(targets)
-    distances = [
-        editdistance.distance(predicted_labels, true_labels) / len(true_labels)
-        for predicted_labels, true_labels
-        in zip(predictions, targets)
-    ]
-
-    if len(distances) == 0:
-        return 0.0
-
-    return np.mean(distances).item()
+    return Metrics(
+        loss=np.mean(losses) if losses is not None else np.nan,
+        wer=wer,
+        ter=ter,
+        edit_distance=np.mean(edit_distances),
+        normalised_edit_distance=np.mean(normalised_edit_distances)
+    )

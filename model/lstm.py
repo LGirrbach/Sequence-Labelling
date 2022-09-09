@@ -1,12 +1,11 @@
 import torch
 import torch.nn as nn
 
-from typing import Tuple
 from torch.nn.utils.rnn import pad_packed_sequence
 from torch.nn.utils.rnn import pack_padded_sequence
 
 
-class BiLSTMBlock(nn.Module):
+class BiLSTMEncoder(nn.Module):
     """
     Implements a wrapper around pytorch's LSTM for easier sequence processing.
     Note: This implementation uses trainable initialisations of hidden states, if they are not provided.
@@ -14,7 +13,7 @@ class BiLSTMBlock(nn.Module):
           hidden dimension
     """
     def __init__(self, input_size: int, hidden_size: int = 128, num_layers: int = 1, dropout: float = 0.0):
-        super(BiLSTMBlock, self).__init__()
+        super(BiLSTMEncoder, self).__init__()
 
         # Save arguments
         self.input_size = input_size
@@ -22,15 +21,21 @@ class BiLSTMBlock(nn.Module):
         self.num_layers = num_layers
         self.dropout = dropout
 
+        # Make properties
+        self._output_size = 2 * self.hidden_size
+
         # Initialise modules
-        self.lstm = nn.LSTM(input_size=input_size, hidden_size=hidden_size, num_layers=num_layers, batch_first=True,
-                            bidirectional=True, dropout=dropout)
-        self.projection = nn.Linear(2 * self.hidden_size, self.hidden_size)
+        self.lstm = nn.LSTM(
+            input_size=input_size, hidden_size=hidden_size, num_layers=num_layers, batch_first=True,
+            bidirectional=True, dropout=dropout
+        )
+        self.reduce_dim = nn.Linear(2 * self.hidden_size, self.hidden_size)
+
         # Initialise trainable hidden state initialisations
         self.h_0 = nn.Parameter(torch.zeros(2 * self.num_layers, 1, self.hidden_size))
         self.c_0 = nn.Parameter(torch.zeros(2 * self.num_layers, 1, self.hidden_size))
 
-    def forward(self, inputs: torch.Tensor, lengths: torch.Tensor, hidden: Tuple[torch.Tensor, torch.Tensor] = None):
+    def forward(self, inputs: torch.Tensor, lengths: torch.Tensor) -> torch.Tensor:
         batch_size = len(lengths)
 
         # Pack sequence
@@ -38,17 +43,14 @@ class BiLSTMBlock(nn.Module):
         inputs = pack_padded_sequence(inputs, lengths, batch_first=True, enforce_sorted=False)
 
         # Prepare hidden states
-        if hidden is None:
-            h_0 = self.h_0.tile((1, batch_size, 1))
-            c_0 = self.c_0.tile((1, batch_size, 1))
-        else:
-            h_0, c_0 = hidden
+        h_0 = self.h_0.tile((1, batch_size, 1))
+        c_0 = self.c_0.tile((1, batch_size, 1))
 
         # Apply LSTM
         encoded, _ = self.lstm(inputs, (h_0, c_0))
         encoded, _ = pad_packed_sequence(encoded, batch_first=True)
 
-        # Project combined forward / backward states to hidden size
-        encoded = self.projection(encoded)
+        # Project down
+        encoded = self.reduce_dim(encoded)
 
         return encoded
