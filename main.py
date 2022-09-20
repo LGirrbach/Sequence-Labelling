@@ -16,8 +16,8 @@ if __name__ == '__main__':
     dev_data = RawDataset(sources=x_dev, targets=y_dev)
 
     settings = Settings(
-        name="pos_test", save_path="saved_models/test", loss="cross-entropy", device=torch.device("cuda:0"),
-        report_progress_every=100, epochs=20, tau=1
+        name="pos_test", save_path="saved_models/test", loss="crf", device=torch.device("cuda:0"),
+        report_progress_every=100, epochs=30, tau=1
     )
 
     labeller = SequenceLabeller(settings=settings)

@@ -10,7 +10,7 @@ class Settings:
                  keep_only_best_checkpoint: bool = True, optimizer: str = "adam", lr: float = 0.001,
                  weight_decay: float = 0.0, grad_clip: Optional[float] = None, embedding_size: int = 64,
                  hidden_size: int = 128, num_layers: int = 1, dropout: float = 0.0, tau: int = 1,
-                 loss: str = "cross-entropy") -> None:
+                 loss: str = "cross-entropy", truncate_crf: bool = False, crf_embedding_size: int = 64) -> None:
         # Experiment settings
         self.name = name
         self.save_path = save_path
@@ -39,3 +39,5 @@ class Settings:
         self.num_layers = num_layers
         self.dropout = dropout
         self.tau = tau
+        self.truncate_crf = truncate_crf
+        self.crf_embedding_size = crf_embedding_size

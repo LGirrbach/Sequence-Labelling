@@ -54,7 +54,7 @@ def crf_loss(model: LSTMModel, batch: Batch, reduction: str = "mean") -> ModelOu
     # Shape [Batch, Timesteps]
 
     # Extract transition scores
-    transition_scores = model.crf.transition_scores[batch.targets[:, 1:], batch.targets[:, :-1]]
+    transition_scores = model.crf.get_transition_scores(batch.targets)
 
     # Extract prior
     prior = model.crf.prior[batch.targets[:, 0]].contiguous()

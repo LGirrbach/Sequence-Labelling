@@ -51,7 +51,7 @@ def viterbi_decode(model: LSTMModel, logits: Tensor, lengths: Tensor, sources: L
     emission_scores = torch.log_softmax(logits, dim=-1)
 
     # Normalise transition and emission scores
-    transition_scores = model.crf.transition_scores
+    transition_scores = model.crf.transition_scores.T
 
     # Calculate prior
     prior = model.crf.prior.unsqueeze(0).expand(batch, num_tags)
