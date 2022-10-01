@@ -119,3 +119,74 @@ def viterbi_decode(model: LSTMModel, logits: Tensor, lengths: Tensor, sources: L
     # Decode predictions
     return _convert_idx(sources=sources, predictions=predicted_paths, target_vocabulary=target_vocabulary, tau=tau)
 
+
+def ctc_crf_decode(model: LSTMModel, logits: Tensor, lengths: Tensor, sources: List[List[str]],
+                   target_vocabulary: SequenceLabellingVocabulary, tau: int) -> List[Prediction]:
+    lengths = tau * lengths
+    # Get relevant dimension info
+    batch, timesteps, num_tags = logits.shape
+
+    # Get relevant scores
+    batch_emission_scores = torch.log_softmax(logits, dim=-1)
+    transition_scores = model.crf.transition_scores.T
+    prior = model.crf.prior
+    final_transition_scores = model.crf.final_transition_scores
+
+    predicted_paths = []
+
+    for length, emission_scores in zip(lengths, batch_emission_scores):
+        length = length.detach().cpu().item()
+        emission_scores = emission_scores[:length]
+
+        alpha = torch.empty(0, num_tags, device=batch_emission_scores.device)
+        backpointers_time = []
+        backpointers_label = []
+
+        for t, emission_scores_t in enumerate(emission_scores):
+            best_prev_label = torch.full((num_tags,), fill_value=-1, dtype=torch.long, device=alpha.device)
+            best_prev_timestep = torch.full((num_tags,), fill_value=-1, dtype=torch.long, device=alpha.device)
+            best_score = emission_scores_t + prior + emission_scores[:t, 0].sum()
+
+            if t > 0:
+                blank_scores = emission_scores[:t, 0]
+                blank_scores = blank_scores.sum() - blank_scores.cumsum(dim=0)
+
+                scores = (
+                    alpha.unsqueeze(2).expand((t, num_tags, num_tags)) +
+                    blank_scores.reshape(-1, 1, 1).expand((t, num_tags, num_tags)) +
+                    emission_scores_t.reshape(1, 1, -1).expand((t, num_tags, num_tags)) +
+                    transition_scores.unsqueeze(0).expand((t, num_tags, num_tags))
+                )
+
+                scores, s = torch.max(scores, dim=0)
+                scores, prev_label = torch.max(scores, dim=0)
+                s = s[prev_label, torch.arange(num_tags)]
+
+                superior_idx = torch.nonzero(scores > best_score, as_tuple=True)
+                best_score[superior_idx] = scores[superior_idx]
+                best_prev_label[superior_idx] = prev_label[superior_idx]
+                best_prev_timestep[superior_idx] = s[superior_idx]
+
+            alpha = torch.cat([alpha, best_score.reshape(1, -1)], dim=0)
+            backpointers_time.append(best_prev_timestep.detach().cpu().tolist())
+            backpointers_label.append(best_prev_label.detach().cpu().tolist())
+
+        blank_scores = emission_scores[:, 0].sum() - emission_scores[:, 0].cumsum(dim=0)
+        blank_scores = blank_scores.unsqueeze(1).expand((length, num_tags))
+        final_scores = alpha + final_transition_scores.unsqueeze(0).expand((length, num_tags)) + blank_scores
+        final_scores, best_end_timestep = torch.max(final_scores, dim=0)
+        best_score, best_end_label = torch.max(final_scores, dim=0)
+
+        label = best_end_label.cpu().item()
+        timestep = best_end_timestep[best_end_label].cpu().item()
+
+        predicted_path = [0 for _ in range(length)]
+
+        while timestep != -1:
+            predicted_path[timestep] = label
+            timestep, label = backpointers_time[timestep][label], backpointers_label[timestep][label]
+
+        predicted_paths.append(predicted_path)
+
+    # Decode predictions
+    return _convert_idx(sources=sources, predictions=predicted_paths, target_vocabulary=target_vocabulary, tau=tau)

@@ -13,19 +13,20 @@ if __name__ == '__main__':
     x_train, x_dev, y_train, y_dev = train_test_split(x_train, y_train)
 
     train_data = RawDataset(sources=x_train, targets=y_train)
-    dev_data = RawDataset(sources=x_dev, targets=y_dev)
+    dev_data = RawDataset(sources=x_dev[:10], targets=y_dev[:10])
 
     settings = Settings(
-        name="pos_test", save_path="saved_models/test", loss="crf", device=torch.device("cuda:0"),
-        report_progress_every=100, epochs=30, tau=1
+        name="pos_test", save_path="saved_models/test", loss="ctc-crf", device=torch.device("cuda:0"),
+        report_progress_every=100, epochs=25, tau=2
     )
 
-    labeller = SequenceLabeller(settings=settings)
-    labeller = labeller.fit(train_data=train_data, development_data=dev_data)
+    # labeller = SequenceLabeller(settings=settings)
+    # labeller = labeller.fit(train_data=train_data, development_data=None)
+    labeller = SequenceLabeller.load("saved_models/test/pos_test.pt")
 
-    predictions = labeller.predict(data["test_source"])
+    predictions = labeller.predict(data["test_source"][:10])
     print(predictions[0])
 
     predictions = [prediction.prediction for prediction in predictions]
-    metrics = get_metrics(predictions=predictions, targets=data["test_target"])
+    metrics = get_metrics(predictions=predictions, targets=data["test_target"][:10])
     print(metrics)

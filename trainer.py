@@ -20,8 +20,8 @@ from torch.nn.utils import clip_grad_value_
 from dataset import SequenceLabellingDataset
 from vocabulary import SequenceLabellingVocabulary
 from torch.optim import SGD, Adam, AdamW, Optimizer
-from inference import argmax_decode, viterbi_decode
-from loss import ctc_loss, crf_loss, cross_entropy_loss
+from inference import argmax_decode, viterbi_decode, ctc_crf_decode
+from loss import ctc_loss, crf_loss, cross_entropy_loss, ctc_crf_loss
 from torch.optim.lr_scheduler import ExponentialLR, OneCycleLR
 
 
@@ -63,7 +63,7 @@ def _prepare_datasets(train_data: RawDataset, development_data: Optional[RawData
 
 
 def _build_model(source_vocab_size: int, target_vocab_size: int, settings: Settings) -> LSTMModel:
-    use_crf = settings.loss == "crf"
+    use_crf = "crf" in settings.loss
 
     return LSTMModel(
         vocab_size=source_vocab_size, num_labels=target_vocab_size, embedding_size=settings.embedding_size,
@@ -108,6 +108,8 @@ def _get_loss_function(loss: str) -> Tuple[Callable, Callable]:
         return ctc_loss, argmax_decode
     elif loss == "crf":
         return crf_loss, viterbi_decode
+    elif loss == "ctc-crf":
+        return ctc_crf_loss, ctc_crf_decode
     else:
         raise ValueError(f"Unknown loss: {loss}")
 

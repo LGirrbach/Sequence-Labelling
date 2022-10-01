@@ -8,13 +8,16 @@ Currently implemented are:
     tasks where the target sequence has different length than the source sequence. The number of
     source symbols is increased by a given multiplicative constant $\tau$ to allow target
     sequences that are longer than the source sequence.
+  * CTC-CRF: Like CRF but allows to predict blanks. Note that this implementation does
+    not truncate repeated symbols. If target sequences can be longer than source sequences,
+    please make use of the $\tau$ parameter (see above).
 
 ## Usage
 Using this code requires 3 steps.
 
 ### 1. Load your data
 This repository does not provide any specific data loading routines.
-Once you have loaded your data, you need to store it in as a `RawDataset` object.
+Once you have loaded your data, you need to store it as a `RawDataset` object.
 Assuming you have stored the source sequences (lists of strings) as `sources` and your target
 sequences (also lists of strings) as `targets`, the following code gives an example:
 
@@ -42,8 +45,9 @@ settings = Settings(
 ```
 
 The most important hyperparameter is `loss`, which defines which type of sequence labelling
-model you want to use. Currently, the available options are `cross-entropy`, `crf`, and 
-`ctc`. When using ctc, please also set `tau`. You should not set `tau` when not using ctc.
+model you want to use. Currently, the available options are `cross-entropy`, `crf`, 
+`ctc`, and `ctc-crf`. When using CTC or CTC-CRF, please also set `tau`.
+You should not set `tau` when not using CTC or CTC-CRF.
 
 ### 3. Train models and make predictions
 This repository provides a single model that takes a `Settings` object as parameter.
@@ -65,7 +69,6 @@ predictions = labeller.predict(sources=source_test)
 ```
 
 ## TODO
-  * Implement CTC-CRF
   * Implement features (e.g. morphological inflection)
 
 ## References
