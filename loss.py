@@ -12,7 +12,10 @@ ModelOutput = namedtuple("ModelOutput", field_names=["loss", "logits"])
 
 
 def _get_logits(model: LSTMModel, batch: Batch) -> Tensor:
-    return model(batch.sources.to(model.device), batch.source_lengths)
+    return model(
+        inputs=batch.sources, lengths=batch.source_lengths,
+        features=batch.features, feature_lengths=batch.feature_lengths
+    )
 
 
 def cross_entropy_loss(model: LSTMModel, batch: Batch, reduction: str = "mean") -> ModelOutput:

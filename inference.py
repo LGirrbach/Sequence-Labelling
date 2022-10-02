@@ -163,7 +163,7 @@ def ctc_crf_decode(model: LSTMModel, logits: Tensor, lengths: Tensor, sources: L
         best_prev_label = torch.full((batch, num_tags,), fill_value=-1, dtype=torch.long, device=alpha.device)
         best_prev_timestep = torch.full((batch, num_tags,), fill_value=-1, dtype=torch.long, device=alpha.device)
 
-        # In the first timestep (t=0), we cannot recur to any previously predicted labels, therefore skip
+        # In the first timestep (t=0), we cannot recur to any previously predicted tags, therefore skip
         if t > 0:
             # For each timestep 0 <= s < t get the score of predicting blanks at timesteps s+1, s+2, ..., t-1
             # This can be written as \sum_{k=s+1}^{t} p_k(0) = \sum_{k=0}^{t} p_k(0) - \sum_{k=0}^{s} p_k(0)

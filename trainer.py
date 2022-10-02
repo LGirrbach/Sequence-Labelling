@@ -31,25 +31,39 @@ TrainData = Tuple[Sequences, Sequences]
 
 DatasetCollection = namedtuple(
     "DatasetCollection",
-    field_names=["source_vocabulary", "target_vocabulary", "train_dataset", "development_dataset"]
+    field_names=["source_vocabulary", "target_vocabulary", "feature_vocabulary", "train_dataset", "development_dataset"]
 )
 TrainedModel = namedtuple(
     "TrainedModel",
-    ["model", "source_vocabulary", "target_vocabulary", "metrics", "checkpoint", "settings"]
+    ["model", "source_vocabulary", "target_vocabulary", "feature_vocabulary", "metrics", "checkpoint", "settings"]
 )
 
 
-def _prepare_datasets(train_data: RawDataset, development_data: Optional[RawDataset] = None) -> DatasetCollection:
+def _prepare_datasets(train_data: RawDataset, development_data: Optional[RawDataset] = None,
+                      use_features: bool = False) -> DatasetCollection:
+    assert train_data.targets is not None
     source_vocabulary = SequenceLabellingVocabulary.build_vocabulary(train_data.sources)
     target_vocabulary = SequenceLabellingVocabulary.build_vocabulary(train_data.targets)
 
+    if use_features:
+        assert train_data.features is not None
+        feature_vocabulary = SequenceLabellingVocabulary.build_vocabulary(train_data.features)
+    else:
+        feature_vocabulary = None
+
     train_dataset = SequenceLabellingDataset(
-        dataset=train_data, source_vocabulary=source_vocabulary, target_vocabulary=target_vocabulary
+        dataset=train_data, source_vocabulary=source_vocabulary, target_vocabulary=target_vocabulary,
+        feature_vocabulary=feature_vocabulary
     )
 
     if development_data is not None:
+        assert development_data.targets is not None
+        if use_features:
+            assert development_data.features is not None
+
         development_dataset = SequenceLabellingDataset(
-            dataset=development_data, source_vocabulary=source_vocabulary, target_vocabulary=target_vocabulary
+            dataset=development_data, source_vocabulary=source_vocabulary, target_vocabulary=target_vocabulary,
+            feature_vocabulary=feature_vocabulary
         )
     else:
         development_dataset = None
@@ -57,6 +71,7 @@ def _prepare_datasets(train_data: RawDataset, development_data: Optional[RawData
     return DatasetCollection(
         source_vocabulary=source_vocabulary,
         target_vocabulary=target_vocabulary,
+        feature_vocabulary=feature_vocabulary,
         train_dataset=train_dataset,
         development_dataset=development_dataset
     )
@@ -68,7 +83,9 @@ def _build_model(source_vocab_size: int, target_vocab_size: int, settings: Setti
     return LSTMModel(
         vocab_size=source_vocab_size, num_labels=target_vocab_size, embedding_size=settings.embedding_size,
         hidden_size=settings.hidden_size, num_layers=settings.num_layers, dropout=settings.dropout,
-        tau=settings.tau, use_crf=use_crf, device=settings.device
+        tau=settings.tau, use_crf=use_crf, device=settings.device, use_features=settings.use_features,
+        feature_embedding_size=settings.feature_embedding_size, feature_hidden_size=settings.feature_hidden_size,
+        feature_num_layers=settings.feature_num_layers, feature_pooling=settings.feature_pooling
     )
 
 
@@ -132,6 +149,7 @@ def save_model(model: TrainedModel, name: str, path: str) -> str:
     model_save_info["state_dict"] = model.model.state_dict()
     model_save_info["source_vocabulary"] = model.source_vocabulary
     model_save_info["target_vocabulary"] = model.target_vocabulary
+    model_save_info["feature_vocabulary"] = model.feature_vocabulary
     model_save_info["metrics"] = model.metrics
     model_save_info["checkpoint"] = model.checkpoint
     model_save_info["settings"] = model.settings
@@ -150,13 +168,14 @@ def load_model(path: str) -> TrainedModel:
 
     source_vocabulary = model_save_info["source_vocabulary"]
     target_vocabulary = model_save_info["target_vocabulary"]
+    feature_vocabulary = model_save_info["feature_vocabulary"]
     metrics = model_save_info["metrics"]
     checkpoint = model_save_info["checkpoint"]
     settings = model_save_info["settings"]
 
     return TrainedModel(
-        model=model, source_vocabulary=source_vocabulary, target_vocabulary=target_vocabulary, metrics=metrics,
-        checkpoint=checkpoint, settings=settings
+        model=model, source_vocabulary=source_vocabulary, target_vocabulary=target_vocabulary,
+        feature_vocabulary=feature_vocabulary, metrics=metrics, checkpoint=checkpoint, settings=settings
     )
 
 
@@ -197,11 +216,14 @@ def train(train_data: RawDataset, development_data: Optional[RawDataset], settin
         logger.info("Build vocabulary and datasets")
 
     # Build and unpack dataset info
-    dataset_collection = _prepare_datasets(train_data=train_data, development_data=development_data)
+    dataset_collection = _prepare_datasets(
+        train_data=train_data, development_data=development_data, use_features=settings.use_features
+    )
     train_dataset = dataset_collection.train_dataset
     dev_dataset = dataset_collection.development_dataset
     source_vocabulary = dataset_collection.source_vocabulary
     target_vocabulary = dataset_collection.target_vocabulary
+    feature_vocabulary = dataset_collection.feature_vocabulary
 
     if settings.verbose:
         logger.info(f"Train data contains {len(train_dataset)} datapoints")
@@ -294,8 +316,8 @@ def train(train_data: RawDataset, development_data: Optional[RawDataset], settin
 
         # Evaluate on dev set
         epoch_model = TrainedModel(
-            model=model, source_vocabulary=source_vocabulary, target_vocabulary=target_vocabulary, metrics=None,
-            checkpoint=None, settings=settings
+            model=model, source_vocabulary=source_vocabulary, target_vocabulary=target_vocabulary,
+            feature_vocabulary=feature_vocabulary, metrics=None, checkpoint=None, settings=settings
         )
 
         if dev_dataset is not None:
@@ -333,7 +355,7 @@ def train(train_data: RawDataset, development_data: Optional[RawDataset], settin
 
         epoch_model = TrainedModel(
             model=model, source_vocabulary=source_vocabulary, target_vocabulary=target_vocabulary,
-            metrics=save_metrics, checkpoint=epoch, settings=settings
+            feature_vocabulary=feature_vocabulary, metrics=save_metrics, checkpoint=epoch, settings=settings
         )
 
         if settings.keep_only_best_checkpoint:
