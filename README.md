@@ -24,9 +24,16 @@ sequences (also lists of strings) as `targets`, the following code gives an exam
 ```python
 from dataset import RawDataset
 
-train_data = RawDataset(sources=sources_train, targets=targets_train)
-dev_data = RawDataset(sources=sources_dev, targets=targets_dev)
+train_data = RawDataset(sources=sources_train, targets=targets_train, features=None)
+dev_data = RawDataset(sources=sources_dev, targets=targets_dev, features=None)
 ```
+
+`RawDataset` is a `namedtuple`, so there are no default values which means you have to
+explicitly state `features=None`. For tasks where there are additional sequence level features
+encoded by a sequence of strings, you can pass them there.
+In this case, also don't forget set `use_features=True` in the settings (see below).
+Features are processed by BiLSTM and combined into a single vector by attention or pooling.
+You can set some hyperparameters of feature encoding (see the `Settings` class).
 
 ### 2. Define settings
 In file `settings.py`, we define a `Settings` object that holds all hyperparameter values.
@@ -67,9 +74,6 @@ labeller = labeller.fit(train_data=train_data, development_data=dev_data)
 
 predictions = labeller.predict(sources=source_test)
 ```
-
-## TODO
-  * Implement features (e.g. morphological inflection)
 
 ## References
  * Huang, Zhiheng, Wei Xu, and Kai Yu.
