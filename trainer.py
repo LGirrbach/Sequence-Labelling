@@ -68,8 +68,7 @@ def _build_model(source_vocab_size: int, target_vocab_size: int, settings: Setti
     return LSTMModel(
         vocab_size=source_vocab_size, num_labels=target_vocab_size, embedding_size=settings.embedding_size,
         hidden_size=settings.hidden_size, num_layers=settings.num_layers, dropout=settings.dropout,
-        tau=settings.tau, use_crf=use_crf, device=settings.device, truncate_crf=settings.truncate_crf,
-        crf_embedding_size=settings.crf_embedding_size
+        tau=settings.tau, use_crf=use_crf, device=settings.device
     )
 
 

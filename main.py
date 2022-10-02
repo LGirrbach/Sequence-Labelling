@@ -20,9 +20,9 @@ if __name__ == '__main__':
         report_progress_every=100, epochs=25, tau=2
     )
 
-    # labeller = SequenceLabeller(settings=settings)
-    # labeller = labeller.fit(train_data=train_data, development_data=None)
-    labeller = SequenceLabeller.load("saved_models/test/pos_test.pt")
+    labeller = SequenceLabeller(settings=settings)
+    labeller = labeller.fit(train_data=train_data, development_data=None)
+    # labeller = SequenceLabeller.load("saved_models/test/pos_test.pt")
 
     predictions = labeller.predict(data["test_source"][:10])
     print(predictions[0])

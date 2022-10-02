@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 
-from model.crf import CRF, TruncatedCRF
+from model.crf import CRF
 from model.lstm import BiLSTMEncoder
 from model.expansion_layer import ExpansionLayer
 
@@ -9,7 +9,7 @@ from model.expansion_layer import ExpansionLayer
 class LSTMModel(nn.Module):
     def __init__(self, vocab_size: int, num_labels: int, device: torch.device, embedding_size: int = 64,
                  hidden_size: int = 128, num_layers: int = 1, dropout: float = 0.0, tau: int = 2,
-                 use_crf: bool = False, truncate_crf: bool = False, crf_embedding_size: int = 64):
+                 use_crf: bool = False):
         super(LSTMModel, self).__init__()
         self.vocab_size = vocab_size
         self.num_labels = num_labels
@@ -20,8 +20,6 @@ class LSTMModel(nn.Module):
         self.dropout = dropout
         self.tau = tau
         self.use_crf = use_crf
-        self.truncate_crf = truncate_crf
-        self.crf_embedding_size = crf_embedding_size
 
         self.embedding = nn.Embedding(num_embeddings=vocab_size, embedding_dim=embedding_size, padding_idx=0)
         self.encoder = BiLSTMEncoder(
@@ -36,10 +34,7 @@ class LSTMModel(nn.Module):
         self.classifier = nn.Sequential(nn.GELU(), nn.Linear(hidden_size, num_labels))
 
         if self.use_crf:
-            if self.truncate_crf:
-                self.crf = TruncatedCRF(num_labels=num_labels, embedding_dim=self.crf_embedding_size)
-            else:
-                self.crf = CRF(num_labels=num_labels)
+            self.crf = CRF(num_labels=num_labels)
 
     def get_params(self):
         return {
@@ -51,9 +46,7 @@ class LSTMModel(nn.Module):
             'num_layers': self.num_layers,
             'dropout': self.dropout,
             'tau': self.tau,
-            'use_crf': self.use_crf,
-            'truncate_crf': self.truncate_crf,
-            'crf_embedding_size': self.crf_embedding_size
+            'use_crf': self.use_crf
         }
 
     def forward(self, inputs: torch.Tensor, lengths: torch.Tensor) -> torch.Tensor:
